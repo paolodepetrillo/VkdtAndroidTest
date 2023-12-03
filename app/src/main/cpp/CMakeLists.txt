@@ -11,6 +11,9 @@ cmake_minimum_required(VERSION 3.22.1)
 # build script scope).
 project("vkdtandroidtest")
 
+include(ExternalProject)
+include(ProcessorCount)
+
 # Creates and names a library, sets it as either STATIC
 # or SHARED, and provides the relative paths to its source code.
 # You can define multiple libraries, and CMake builds them for you.
@@ -35,3 +38,23 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         # List libraries link to the target library
         android
         log)
+
+configure_file(vkdt_config.mk.in ${CMAKE_CURRENT_BINARY_DIR}/vkdt_config.mk)
+
+ProcessorCount(NPROC)
+if(NOT NPROC EQUAL 0)
+    set(VKDT_MAKEFLAGS -j${NPROC})
+endif()
+ExternalProject_Add(vkdt
+        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/vkdt-prefix
+        GIT_REPOSITORY https://github.com/paolodepetrillo/vkdt
+        GIT_TAG e8dd21f795a23c28601bf9ea919a5e27c2cc1112
+        CONFIGURE_COMMAND cp "${CMAKE_CURRENT_BINARY_DIR}/vkdt_config.mk" "${CMAKE_CURRENT_BINARY_DIR}/vkdt-prefix/src/vkdt/bin/config.mk"
+        BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEFLAGS=${VKDT_MAKEFLAGS}
+            make -C "${CMAKE_CURRENT_BINARY_DIR}/vkdt-prefix/src/vkdt/bin" lib
+        BUILD_IN_SOURCE true
+        INSTALL_COMMAND ""
+        UPDATE_COMMAND ""
+)
+
+add_dependencies(${CMAKE_PROJECT_NAME} vkdt)
