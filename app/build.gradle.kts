@@ -19,6 +19,12 @@ android {
         }
         ndkVersion = "26.1.10909125"
 
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DVKDT_ASSETS_DIR=${android.sourceSets["main"].assets.srcDirs.first()}")
+            }
+        }
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

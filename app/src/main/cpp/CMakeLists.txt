@@ -37,7 +37,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
 target_link_libraries(${CMAKE_PROJECT_NAME}
         # List libraries link to the target library
         android
-        log)
+        log
+        vkdt)
 
 configure_file(vkdt_config.mk.in ${CMAKE_CURRENT_BINARY_DIR}/vkdt_config.mk)
 
@@ -45,16 +46,30 @@ ProcessorCount(NPROC)
 if(NOT NPROC EQUAL 0)
     set(VKDT_MAKEFLAGS -j${NPROC})
 endif()
-ExternalProject_Add(vkdt
-        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/vkdt-prefix
+SET(VKDT_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/vkdt-prefix)
+SET(VKDT_ROOT ${VKDT_PREFIX}/src/vkdt_project)
+ExternalProject_Add(vkdt_project
+        PREFIX ${VKDT_PREFIX}
         GIT_REPOSITORY https://github.com/paolodepetrillo/vkdt
         GIT_TAG e8dd21f795a23c28601bf9ea919a5e27c2cc1112
-        CONFIGURE_COMMAND cp "${CMAKE_CURRENT_BINARY_DIR}/vkdt_config.mk" "${CMAKE_CURRENT_BINARY_DIR}/vkdt-prefix/src/vkdt/bin/config.mk"
+        CONFIGURE_COMMAND cp "${CMAKE_CURRENT_BINARY_DIR}/vkdt_config.mk" "${VKDT_ROOT}/bin/config.mk"
         BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEFLAGS=${VKDT_MAKEFLAGS}
-            make -C "${CMAKE_CURRENT_BINARY_DIR}/vkdt-prefix/src/vkdt/bin" lib
+            make -C "${VKDT_ROOT}/bin" lib
         BUILD_IN_SOURCE true
-        INSTALL_COMMAND ""
+        INSTALL_COMMAND bash ${CMAKE_SOURCE_DIR}/gen_vkdtbase.sh ${VKDT_ROOT}/vkdtbase.zip ${VKDT_ROOT}
         UPDATE_COMMAND ""
+        BUILD_BYPRODUCTS ${VKDT_ROOT}/bin/libvkdt.so
 )
 
-add_dependencies(${CMAKE_PROJECT_NAME} vkdt)
+add_library(vkdt SHARED IMPORTED)
+set_target_properties(vkdt PROPERTIES IMPORTED_LOCATION ${VKDT_ROOT}/bin/libvkdt.so)
+
+add_dependencies(${CMAKE_PROJECT_NAME} vkdt_project vkdt)
+
+add_custom_command(
+        TARGET vkdt_project
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${VKDT_ROOT}/vkdtbase.zip
+            ${VKDT_ASSETS_DIR}/vkdtbase.zip
+)
