@@ -1,24 +1,22 @@
 package com.github.paolodepetrillo.vkdtandroidtest
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.widget.TextView
-import com.github.paolodepetrillo.vkdtandroidtest.databinding.ActivityMainBinding
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 
-class MainActivity : AppCompatActivity() {
-
-    private lateinit var binding: ActivityMainBinding
-
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        // Example of a call to a native method
-        val v = VkdtBase(this)
-        binding.sampleText.text = stringFromJNI(v.root.absolutePath)
-
+        val vkdtBase = VkdtBase(this)
+        val sampleText = stringFromJNI(vkdtBase.root.absolutePath)
+        setContent {
+            MaterialTheme {
+                Text(sampleText)
+            }
+        }
     }
 
     /**
