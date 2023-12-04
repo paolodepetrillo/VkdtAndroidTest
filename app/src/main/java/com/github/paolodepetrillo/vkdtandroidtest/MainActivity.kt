@@ -16,14 +16,16 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // Example of a call to a native method
-        binding.sampleText.text = stringFromJNI()
+        val v = VkdtBase(this)
+        binding.sampleText.text = stringFromJNI(v.root.absolutePath)
+
     }
 
     /**
      * A native method that is implemented by the 'vkdtandroidtest' native library,
      * which is packaged with this application.
      */
-    external fun stringFromJNI(): String
+    external fun stringFromJNI(basePath: String): String
 
     companion object {
         // Used to load the 'vkdtandroidtest' library on application startup.
