@@ -8,6 +8,7 @@ extern "C" {
 #include "qvk/qvk.h"
 #include "pipe/global.h"
 #include "pipe/graph.h"
+#include "pipe/graph-io.h"
 }
 
 static void vkdt_android_logger(dt_log_mask_t mask, const char *fmt, va_list ap) {
@@ -59,4 +60,25 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_cleanupGraph(JNIE
     auto *graph = (dt_graph_t *)native_graph;
     dt_graph_cleanup(graph);
     free(graph);
+}
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_loadConfigLines(JNIEnv *env,
+                                                                               jclass clazz,
+                                                                               jlong native_graph,
+                                                                               jobjectArray lines) {
+    auto *graph = (dt_graph_t *)native_graph;
+    int n = env->GetArrayLength(lines);
+    for (int i = 0; i < n; i++) {
+        auto jline = (jstring)env->GetObjectArrayElement(lines, i);
+        const char *line = env->GetStringUTFChars(jline, nullptr);
+        char buf[300000] = {0}; // workaround - need a char, not a const char
+        strncpy(buf, line, 299999);
+        int err = dt_graph_read_config_line(graph, buf);
+        if (err < 0) {
+            return err;
+        }
+        env->ReleaseStringUTFChars(jline, line);
+    }
+    return 0;
 }
