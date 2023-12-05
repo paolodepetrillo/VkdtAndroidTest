@@ -8,7 +8,7 @@ include(ProcessorCount)
 add_compile_definitions(VK_NO_PROTOTYPES)
 
 add_library(${CMAKE_PROJECT_NAME} SHARED
-        native-lib.cpp)
+        vkdtlib.cpp)
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
         android

@@ -11,6 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.lifecycleScope
+import com.github.paolodepetrillo.vkdtandroidtest.vkdt.VkdtBase
+import com.github.paolodepetrillo.vkdtandroidtest.vkdt.VkdtLib
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -24,7 +26,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val vkdtBase = VkdtBase(this)
-        val sampleText = stringFromJNI(vkdtBase.root.absolutePath)
+        val vkdtLib = VkdtLib(vkdtBase)
+        val graph = vkdtLib.newGraph()
         setContent {
             MaterialTheme {
                 val multiplePermissionsState = rememberMultiplePermissionsState(permissions)
@@ -87,18 +90,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * A native method that is implemented by the 'vkdtandroidtest' native library,
-     * which is packaged with this application.
-     */
-    external fun stringFromJNI(basePath: String): String
-
     companion object {
         val permissions = listOf(android.Manifest.permission.READ_MEDIA_IMAGES)
-
-        // Used to load the 'vkdtandroidtest' library on application startup.
-        init {
-            System.loadLibrary("vkdtandroidtest")
-        }
     }
 }

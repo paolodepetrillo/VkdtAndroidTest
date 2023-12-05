@@ -1,4 +1,4 @@
-package com.github.paolodepetrillo.vkdtandroidtest
+package com.github.paolodepetrillo.vkdtandroidtest.vkdt
 
 import android.content.Context
 import java.io.File
