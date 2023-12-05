@@ -8,7 +8,9 @@ extern "C" {
 #include "qvk/qvk.h"
 #include "pipe/global.h"
 #include "pipe/graph.h"
+#include "pipe/graph-export.h"
 #include "pipe/graph-io.h"
+#include "pipe/modules/api.h"
 }
 
 static void vkdt_android_logger(dt_log_mask_t mask, const char *fmt, va_list ap) {
@@ -61,6 +63,7 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_cleanupGraph(JNIE
     dt_graph_cleanup(graph);
     free(graph);
 }
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_loadConfigLines(JNIEnv *env,
@@ -81,4 +84,52 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_loadConfigLines(J
         env->ReleaseStringUTFChars(jline, line);
     }
     return 0;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_setParamString(JNIEnv *env,
+                                                                              jclass clazz,
+                                                                              jlong native_graph,
+                                                                              jlong name,
+                                                                              jlong inst,
+                                                                              jlong param,
+                                                                              jstring value) {
+    auto *graph = (dt_graph_t *)native_graph;
+    int err;
+    err = dt_module_get(graph, name, inst);
+    if (err < 0) {
+        return err;
+    }
+    int modid = err;
+    const char *value_str = env->GetStringUTFChars(value, nullptr);
+    err = dt_module_set_param_string(&graph->module[modid], param, value_str);
+    env->ReleaseStringUTFChars(value, value_str);
+    return err;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_testExport(JNIEnv *env, jclass clazz,
+                                                                          jlong native_graph,
+                                                                          jstring out_path) {
+    auto *graph = (dt_graph_t *)native_graph;
+    int err;
+    err = dt_graph_replace_display(graph, 0, 0, 0);
+    if (err != 0) {
+        __android_log_print(ANDROID_LOG_INFO, "vkdt", "replace display fail %d", err);
+        return;
+    }
+    dt_graph_disconnect_display_modules(graph);
+    int mod_out_id = dt_module_get(graph, dt_token("o-jpg"), dt_token("main"));
+    dt_module_t *mod_out = &graph->module[mod_out_id];
+    const char *out_path_str = env->GetStringUTFChars(out_path, nullptr);
+    err = dt_module_set_param_string(mod_out, dt_token("filename"), out_path_str);
+    if (err != 0) {
+        __android_log_print(ANDROID_LOG_INFO, "vkdt", "set output filename fail %d", err);
+        return;
+    }
+    env->ReleaseStringUTFChars(out_path, out_path_str);
+    VkResult res = dt_graph_run(graph, s_graph_run_all);
+    __android_log_print(ANDROID_LOG_INFO, "vkdt", "graph run %d", res);
 }

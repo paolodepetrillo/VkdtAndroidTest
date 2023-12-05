@@ -10,9 +10,10 @@ class VkdtBase(context: Context) {
     private val flagFile = File(root, "_unpacked_")
 
     init {
-        if (!flagFile.exists()) {
+        // TODO Keep track of checksum of zip?
+        //if (!flagFile.exists()) {
             unpack(context)
-        }
+        //}
     }
 
     private fun unpack(context: Context) {
