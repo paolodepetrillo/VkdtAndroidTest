@@ -21,7 +21,9 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments += listOf("-DVKDT_ASSETS_DIR=${android.sourceSets["main"].assets.srcDirs.first()}")
+                arguments += listOf(
+                    "-DANDROID_STL=c++_shared",
+                    "-DVKDT_ASSETS_DIR=${android.sourceSets["main"].assets.srcDirs.first()}")
             }
         }
 
