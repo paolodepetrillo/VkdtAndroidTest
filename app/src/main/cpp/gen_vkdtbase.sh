@@ -18,4 +18,4 @@ zip -9r $ZIPFILE \
   modules/*/ctooltips \
   modules/*/readme.md \
   modules/*/*.so \
-  modules/**.spv
+  modules/*/*.spv
