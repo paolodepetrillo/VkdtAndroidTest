@@ -1,35 +1,29 @@
 package com.github.paolodepetrillo.vkdtandroidtest.vkdt
 
-class DtToken(private val s: String) {
+@JvmInline
+value class DtToken(val token: Long) {
+    constructor(s: String) : this(fromString(s))
+
     override fun toString(): String {
-        return s
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as DtToken
-
-        if (s != other.s) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        return s.hashCode()
-    }
-
-    val token: Long
-
-    init {
-        if (s.isEmpty() || s.length > 8) {
-            throw RuntimeException("Invalid token")
+        var v = token
+        val s = StringBuilder(8)
+        while (v > 0) {
+            s.append((v % 256).toInt().toChar())
+            v /= 256
         }
-        var t = 0L
-        s.forEachIndexed { index, c ->
-            t += c.code.toLong() shl (8 * index)
+        return s.toString()
+    }
+
+    companion object {
+        private fun fromString(s: String): Long {
+            if (s.isEmpty() || s.length > 8) {
+                throw RuntimeException("Invalid token")
+            }
+            var t = 0L
+            s.forEachIndexed { index, c ->
+                t += c.code.toLong() shl (8 * index)
+            }
+            return t
         }
-        token = t
     }
 }
