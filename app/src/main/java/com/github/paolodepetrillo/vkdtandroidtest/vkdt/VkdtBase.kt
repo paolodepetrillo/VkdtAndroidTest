@@ -1,19 +1,26 @@
 package com.github.paolodepetrillo.vkdtandroidtest.vkdt
 
 import android.content.Context
+import com.github.paolodepetrillo.vkdtandroidtest.BuildConfig
 import java.io.File
 import java.lang.RuntimeException
 import java.util.zip.ZipInputStream
 
 class VkdtBase(context: Context) {
     val root = File(context.filesDir, "vkdtbase")
-    private val flagFile = File(root, "_unpacked_")
+    private val timestampFile = File(root, "vkdtbase_timestamp")
 
     init {
-        // TODO Keep track of checksum of zip?
-        //if (!flagFile.exists()) {
+        if (timestampFile.exists()) {
+            timestampFile.inputStream().use {
+                val timestamp = it.reader().readText()
+                if (timestamp != BuildConfig.BUILD_TIME) {
+                    unpack(context)
+                }
+            }
+        } else {
             unpack(context)
-        //}
+        }
     }
 
     private fun unpack(context: Context) {
@@ -43,8 +50,10 @@ class VkdtBase(context: Context) {
                     }
             }
         }
-        flagFile.outputStream().use {
-            it.write(0)
+        timestampFile.outputStream().use { fos ->
+            fos.writer().use {
+                it.write(BuildConfig.BUILD_TIME)
+            }
         }
     }
 }
