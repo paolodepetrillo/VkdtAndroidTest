@@ -1,16 +1,20 @@
 #include <jni.h>
 #include <string>
+#include <android/bitmap.h>
 #include <android/log.h>
 
 extern "C" {
 #include "core/log.h"
 #include "core/threads.h"
 #include "qvk/qvk.h"
+#include "pipe/connector.h"
 #include "pipe/global.h"
 #include "pipe/graph.h"
 #include "pipe/graph-export.h"
 #include "pipe/graph-io.h"
+#include "pipe/module.h"
 #include "pipe/modules/api.h"
+#include "pipe/modules/o-cback/callback.h"
 }
 
 static void vkdt_android_logger(dt_log_mask_t mask, const char *fmt, va_list ap) {
@@ -117,7 +121,7 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_testExport(JNIEnv
     int err;
     err = dt_graph_replace_display(graph, 0, 0, 0);
     if (err != 0) {
-        __android_log_print(ANDROID_LOG_INFO, "vkdt", "replace display fail %d", err);
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "replace display fail %d", err);
         return;
     }
     dt_graph_disconnect_display_modules(graph);
@@ -132,4 +136,126 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_testExport(JNIEnv
     env->ReleaseStringUTFChars(out_path, out_path_str);
     VkResult res = dt_graph_run(graph, s_graph_run_all);
     __android_log_print(ANDROID_LOG_INFO, "vkdt", "graph run %d", res);
+}
+
+typedef struct {
+    JNIEnv *env;
+    jobject bitmap;
+} ocback_param_t;
+
+static void vkdt_android_output_callback(void *param, dt_token_t inst, int wd, int ht, const uint8_t *data) {
+    __android_log_print(ANDROID_LOG_INFO, "vkdt", "callback %d %d", wd, ht);
+    int err;
+    auto *p = (ocback_param_t *)param;
+
+    AndroidBitmapInfo bitmap_info;
+    err = AndroidBitmap_getInfo(p->env, p->bitmap, &bitmap_info);
+    if (err != ANDROID_BITMAP_RESULT_SUCCESS) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "Failed to get bitmap info %d", err);
+        return;
+    }
+
+    if (bitmap_info.width != wd || bitmap_info.height != ht) {
+        __android_log_print(ANDROID_LOG_INFO, "vkdt", "Bitmap size mismatch - is %dx%d but needs %dx%d",
+                            bitmap_info.width, bitmap_info.height, wd, ht);
+        return;
+    }
+
+    uint8_t *pixels;
+    err = AndroidBitmap_lockPixels(p->env, p->bitmap, (void **)&pixels);
+    if (err != ANDROID_BITMAP_RESULT_SUCCESS) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "Failed to lock pixels %d", err);
+        return;
+    }
+
+    memcpy(pixels, data, wd * ht * 8);
+    __android_log_print(ANDROID_LOG_INFO, "vkdt", "Copied pixels to bitmap");
+
+    err = AndroidBitmap_unlockPixels(p->env, p->bitmap);
+    if (err != ANDROID_BITMAP_RESULT_SUCCESS) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "Failed to unlock pixels %d", err);
+    }
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_replaceDisplayWithCback(JNIEnv *env,
+                                                                                       jclass clazz,
+                                                                                       jlong native_graph) {
+    auto *graph = (dt_graph_t *)native_graph;
+    const int mid = dt_module_get(graph, dt_token("display"), dt_token("main"));
+    if (mid < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "cannot find display:main module");
+        return 1;
+    }
+    const int cid = dt_module_get_connector(graph->module + mid, dt_token("input"));
+    const int m0 = graph->module[mid].connector[cid].connected_mi;
+    const int o0 = graph->module[mid].connector[cid].connected_mc;
+    if (m0 < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "display input is not connected");
+        return 2;
+    }
+    const int m1 = dt_module_add(graph, dt_token("o-cback"), dt_token("main"));
+    const int i1 = dt_module_get_connector(graph->module + m1, dt_token("input"));
+    CONN(dt_module_connect(graph, m0, o0, m1, i1));
+    dt_graph_disconnect_display_modules(graph);
+    graph->module[m1].data = (void *)vkdt_android_output_callback;
+    return 0;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_runGraph(JNIEnv *env, jclass clazz,
+                                                                        jlong native_graph,
+                                                                        jobject main_bitmap) {
+    auto *graph = (dt_graph_t *)native_graph;
+    int err;
+
+    const int mid = dt_module_get(graph, dt_token("o-cback"), dt_token("main"));
+    if (mid < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "cannot find o-cback:main module");
+        return 1;
+    }
+    jobject bmp = env->NewLocalRef(main_bitmap);
+    ocback_param_t ocback_param;
+    dt_ocback_data_t ocback_data;
+    ocback_data.callback = vkdt_android_output_callback;
+    ocback_data.param = &ocback_param;
+    if (bmp != nullptr) {
+        ocback_param.env = env;
+        ocback_param.bitmap = bmp;
+        graph->module[mid].data = &ocback_data;
+    } else {
+        graph->module[mid].data = nullptr;
+    }
+
+    VkResult res = dt_graph_run(graph, s_graph_run_all);
+    __android_log_print(ANDROID_LOG_INFO, "vkdt", "graph run %d", res);
+    return res;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_runGraphForRoi(JNIEnv *env,
+                                                                              jclass clazz,
+                                                                              jlong native_graph,
+                                                                              jintArray size) {
+    auto *graph = (dt_graph_t *)native_graph;
+    VkResult res = dt_graph_run(graph, s_graph_run_roi);
+    if (res != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "Failed to run graph for roi %d", res);
+        return res;
+    }
+
+    const int mid = dt_module_get(graph, dt_token("o-cback"), dt_token("main"));
+    if (mid < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "cannot find o-cback:main module");
+        return 1;
+    }
+
+    int *wh = env->GetIntArrayElements(size, nullptr);
+    wh[0] = (int)graph->module[mid].connector[0].roi.full_wd;
+    wh[1] = (int)graph->module[mid].connector[0].roi.full_ht;
+    env->ReleaseIntArrayElements(size, wh, 0);
+    return 0;
 }

@@ -1,20 +1,29 @@
 package com.github.paolodepetrillo.vkdtandroidtest
 
-import android.content.ContentUris
+import android.graphics.Bitmap
 import android.os.Bundle
+import android.os.StrictMode
+import android.os.StrictMode.VmPolicy
 import android.provider.MediaStore
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.lifecycleScope
 import com.github.paolodepetrillo.vkdtandroidtest.vkdt.DtModuleId
+import com.github.paolodepetrillo.vkdtandroidtest.vkdt.DtToken
 import com.github.paolodepetrillo.vkdtandroidtest.vkdt.VkdtBase
+import com.github.paolodepetrillo.vkdtandroidtest.vkdt.VkdtGraph
 import com.github.paolodepetrillo.vkdtandroidtest.vkdt.VkdtLib
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
@@ -24,7 +33,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+
 class MainActivity : ComponentActivity() {
+    var graph: VkdtGraph? = null
+
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,9 +55,16 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun MainUi() {
+        var bmp by remember { mutableStateOf<Bitmap?>(null) }
         Column {
-            Button(onClick = {lifecycleScope.launch {loadImage()}}) {
+            Button(onClick = { lifecycleScope.launch {
+                loadImage()
+                bmp = graph?.getBitmap(DtToken("main"))
+            } }) {
                 Text("Load Image")
+            }
+            bmp?.let {
+                Image(it.asImageBitmap(), null)
             }
         }
     }
@@ -103,12 +122,12 @@ class MainActivity : ComponentActivity() {
     fun processRaw(rawFileName: String) {
         val vkdtBase = VkdtBase(this)
         val vkdtLib = VkdtLib(vkdtBase)
-        val graph = vkdtLib.newGraph()
+        graph = vkdtLib.newGraph()
         val gf = File(filesDir, "vkdtbase/bin/default-darkroom.i-raw")
         val lines = gf.readText(Charsets.UTF_8).lines()
-        graph.loadConfigLines(lines)
-        graph.setParam(DtModuleId("i-raw", "main"), "filename", rawFileName)
-        graph.doTestExport(File(filesDir, "out.jpg").absolutePath)
+        graph!!.loadConfigLines(lines)
+        graph!!.setParam(DtModuleId("i-raw", "main"), "filename", rawFileName)
+        graph!!.doTestExport(File(filesDir, "out.jpg").absolutePath)
     }
 
     companion object {
