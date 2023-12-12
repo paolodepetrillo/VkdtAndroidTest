@@ -3,6 +3,7 @@ package com.github.paolodepetrillo.vkdtandroidtest.vkdt
 import android.graphics.Bitmap
 import android.graphics.ColorSpace
 import android.util.Log
+import androidx.annotation.Keep
 
 class VkdtGraph internal constructor() {
     private val nativeGraph: Long = initGraph()
@@ -18,6 +19,8 @@ class VkdtGraph internal constructor() {
         if (err != 0) {
             throw RuntimeException("Error loading config graph")
         }
+        replaceDisplayWithCback(nativeGraph)
+        pendingRunFlags = RUN_ALL
     }
 
     fun setParam(module: DtModuleId, param: String, value: String) {
@@ -50,44 +53,37 @@ class VkdtGraph internal constructor() {
         pendingRunFlags = pendingRunFlags or runFlags[0]
     }
 
+    /*
     fun doTestExport(outPath: String): Bitmap {
         //testExport(nativeGraph, outPath);
         replaceDisplayWithCback(nativeGraph)
-        val ps = getOutputSize()
-        val mainBitmap = getBitmapForOutput(DtToken("main"), ps)
-        runGraph(nativeGraph, RUN_ALL, mainBitmap)
-        return mainBitmap
+        //val ps = getOutputSize()
+        //val mainBitmap = getBitmapForOutput(DtToken("main"), ps)
+        runGraph(nativeGraph, RUN_ALL)
+        return getBitmap(DtToken("main")) ?: getBitmapForOutput(DtToken("main").token, 100, 100)
         //val ps = getOutputSize()
         //getBitmapForOutput(DtToken("main"), ps)
         //runGraph(nativeGraph, RUN_ALL, mainBitmap);
     }
+     */
 
     fun runGraphIfNeeded(): Bitmap {
         pendingRunFlags.let {
             Log.i("vkdt", "Run graph with pending flags $pendingRunFlags")
             if (it > 0) {
-                val flags = it or RUN_DOWNLOAD_SINK or RUN_WAIT_DONE or RUN_ALL
-                Log.i("vkdt", "Run graph with flags $flags")
-                val ps = getOutputSize()
-                val mainBitmap = getBitmapForOutput(DtToken("main"), ps)
-                runGraph(nativeGraph, flags, mainBitmap)
+                val flags = it or RUN_DOWNLOAD_SINK or RUN_WAIT_DONE
+                runGraph(nativeGraph, flags)
                 pendingRunFlags = 0
-                return mainBitmap
-            } else {
-                return getBitmap(DtToken("main")) ?: getBitmapForOutput(DtToken("main"), PixelSize(100, 100))
             }
         }
+        return getBitmap(DtToken("main")) ?: getBitmapForOutput(DtToken("main").token, 100, 100)
     }
 
-    private fun getOutputSize(): PixelSize {
-        val wh = IntArray(2)
-        val err = runGraphForRoi(nativeGraph, wh)
-        return PixelSize(wh[0], wh[1])
-    }
-
-    private fun getBitmapForOutput(inst: DtToken, size: PixelSize): Bitmap {
+    @Keep
+    private fun getBitmapForOutput(instVal: Long, wd: Int, ht: Int): Bitmap {
+        val inst = DtToken(instVal)
         bitmaps[inst]?.let {
-            if (it.width == size.wd && it.height == size.ht) {
+            if (it.width == wd && it.height == ht) {
                 return it
             }
         }
@@ -97,7 +93,7 @@ class VkdtGraph internal constructor() {
             (ColorSpace.get(ColorSpace.Named.BT2020) as ColorSpace.Rgb).primaries,
             ColorSpace.ILLUMINANT_D65,
             1.0)
-        val bitmap = Bitmap.createBitmap(size.wd, size.ht, Bitmap.Config.RGBA_F16, true, colorSpace)
+        val bitmap = Bitmap.createBitmap(wd, ht, Bitmap.Config.RGBA_F16, true, colorSpace)
         bitmaps[inst] = bitmap
         return bitmap
     }
@@ -105,6 +101,8 @@ class VkdtGraph internal constructor() {
     fun getBitmap(inst: DtToken): Bitmap? {
         return bitmaps[inst]
     }
+
+    private external fun runGraph(nativeGraph: Long, runFlags: Long): Int
 
     companion object {
         const val RUN_ALL = 0xffffffffL
@@ -136,13 +134,9 @@ class VkdtGraph internal constructor() {
             newValue: Float,
             runFlags: LongArray
         ): Int
-        @JvmStatic
-        private external fun testExport(nativeGraph: Long, outPath: String)
+        //@JvmStatic
+        //private external fun testExport(nativeGraph: Long, outPath: String)
         @JvmStatic
         private external fun replaceDisplayWithCback(nativeGraph: Long): Int
-        @JvmStatic
-        private external fun runGraph(nativeGraph: Long, runFlags: Long, mainBitmap: Bitmap?): Int
-        @JvmStatic
-        private external fun runGraphForRoi(nativeGraph: Long, size: IntArray): Int
     }
 }

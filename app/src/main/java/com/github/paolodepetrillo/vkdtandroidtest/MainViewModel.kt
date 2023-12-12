@@ -1,6 +1,5 @@
 package com.github.paolodepetrillo.vkdtandroidtest
 
-import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -33,7 +32,7 @@ class MainViewModel @Inject constructor(val vkdtLib: VkdtLib): ViewModel() {
             val lines = gf.readText(Charsets.UTF_8).lines()
             graph.loadConfigLines(lines)
             graph.setParam(DtModuleId("i-raw", "main"), "filename", name)
-            val bmp = graph.doTestExport("")
+            val bmp = graph.runGraphIfNeeded()
             _mainBitmap.value = BitmapWrapper(bmp)
         }
     }
