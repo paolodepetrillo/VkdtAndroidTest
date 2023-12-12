@@ -22,6 +22,26 @@ static void vkdt_android_logger(dt_log_mask_t mask, const char *fmt, va_list ap)
                          "vkdt", fmt, ap);
 }
 
+static int module_get(const dt_graph_t *graph, dt_token_t name, dt_token_t inst) {
+    int err = dt_module_get(graph, name, inst);
+    if (err < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt",
+                            "cannot find module %" PRItkn ":%" PRItkn,
+                            dt_token_str(name), dt_token_str(inst));
+    }
+    return err;
+}
+
+static int module_get_param(dt_module_t *mod, long param) {
+    int err = dt_module_get_param(mod->so, param);
+    if (err < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt",
+                            "cannot find module %" PRItkn " parameter %" PRItkn,
+                            dt_token_str(mod->so->name), dt_token_str(param));
+    }
+    return err;
+}
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtLib_initVkdtLib(JNIEnv *env, jclass thiz,
@@ -98,10 +118,11 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_setParamString(JN
                                                                               jlong name,
                                                                               jlong inst,
                                                                               jlong param,
-                                                                              jstring value) {
+                                                                              jstring value,
+                                                                              jlongArray run_flags) {
     auto *graph = (dt_graph_t *)native_graph;
     int err;
-    err = dt_module_get(graph, name, inst);
+    err = module_get(graph, name, inst);
     if (err < 0) {
         return err;
     }
@@ -109,6 +130,11 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_setParamString(JN
     const char *value_str = env->GetStringUTFChars(value, nullptr);
     err = dt_module_set_param_string(&graph->module[modid], param, value_str);
     env->ReleaseStringUTFChars(value, value_str);
+
+    long *rf = env->GetLongArrayElements(run_flags, nullptr);
+    rf[0] = s_graph_run_all;
+    env->ReleaseLongArrayElements(run_flags, rf, 0);
+
     return err;
 }
 
@@ -125,7 +151,7 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_testExport(JNIEnv
         return;
     }
     dt_graph_disconnect_display_modules(graph);
-    int mod_out_id = dt_module_get(graph, dt_token("o-jpg"), dt_token("main"));
+    int mod_out_id = module_get(graph, dt_token("o-jpg"), dt_token("main"));
     dt_module_t *mod_out = &graph->module[mod_out_id];
     const char *out_path_str = env->GetStringUTFChars(out_path, nullptr);
     err = dt_module_set_param_string(mod_out, dt_token("filename"), out_path_str);
@@ -183,9 +209,8 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_replaceDisplayWit
                                                                                        jclass clazz,
                                                                                        jlong native_graph) {
     auto *graph = (dt_graph_t *)native_graph;
-    const int mid = dt_module_get(graph, dt_token("display"), dt_token("main"));
+    const int mid = module_get(graph, dt_token("display"), dt_token("main"));
     if (mid < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "cannot find display:main module");
         return 1;
     }
     const int cid = dt_module_get_connector(graph->module + mid, dt_token("input"));
@@ -207,13 +232,15 @@ extern "C"
 JNIEXPORT jint JNICALL
 Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_runGraph(JNIEnv *env, jclass clazz,
                                                                         jlong native_graph,
+                                                                        jlong run_flags,
                                                                         jobject main_bitmap) {
     auto *graph = (dt_graph_t *)native_graph;
     int err;
 
-    const int mid = dt_module_get(graph, dt_token("o-cback"), dt_token("main"));
+    __android_log_print(ANDROID_LOG_INFO, "vkdt", "Run graph with flags %lx", run_flags);
+
+    const int mid = module_get(graph, dt_token("o-cback"), dt_token("main"));
     if (mid < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "cannot find o-cback:main module");
         return 1;
     }
     jobject bmp = env->NewLocalRef(main_bitmap);
@@ -229,8 +256,11 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_runGraph(JNIEnv *
         graph->module[mid].data = nullptr;
     }
 
-    VkResult res = dt_graph_run(graph, s_graph_run_all);
+    VkResult res = dt_graph_run(graph, run_flags);
     __android_log_print(ANDROID_LOG_INFO, "vkdt", "graph run %d", res);
+
+    graph->module[mid].data = nullptr;
+
     return res;
 }
 
@@ -247,9 +277,8 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_runGraphForRoi(JN
         return res;
     }
 
-    const int mid = dt_module_get(graph, dt_token("o-cback"), dt_token("main"));
+    const int mid = module_get(graph, dt_token("o-cback"), dt_token("main"));
     if (mid < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "cannot find o-cback:main module");
         return 1;
     }
 
@@ -257,5 +286,45 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_runGraphForRoi(JN
     wh[0] = (int)graph->module[mid].connector[0].roi.full_wd;
     wh[1] = (int)graph->module[mid].connector[0].roi.full_ht;
     env->ReleaseIntArrayElements(size, wh, 0);
+    return 0;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_setParamFloat(JNIEnv *env,
+                                                                             jclass clazz,
+                                                                             jlong native_graph,
+                                                                             jlong name, jlong inst,
+                                                                             jlong param,
+                                                                             jint num,
+                                                                             jfloat new_value,
+                                                                             jlongArray run_flags) {
+    auto *graph = (dt_graph_t *) native_graph;
+    int modid = module_get(graph, name, inst);
+    if (modid < 0) {
+        return modid;
+    }
+    dt_module_t *mod = &graph->module[modid];
+    int parid = module_get_param(mod, param);
+    if (parid < 0) {
+        return parid;
+    }
+    dt_ui_param_t *ui = mod->so->param[parid];
+    if (num >= ui->cnt) {
+        __android_log_print(ANDROID_LOG_ERROR, "vkdt", "Index %d out of range %d", num, ui->cnt);
+        return -1;
+    }
+
+    float *val = (float *)(mod->param + mod->so->param[parid]->offset) + num;
+    float oldval = *val;
+    *val = new_value;
+
+    long *rf = env->GetLongArrayElements(run_flags, nullptr);
+    rf[0] = s_graph_run_record_cmd_buf;
+    if (mod->so->check_params) {
+        rf[0] |= mod->so->check_params(mod, parid, num, &oldval);
+    }
+    env->ReleaseLongArrayElements(run_flags, rf, 0);
+
     return 0;
 }

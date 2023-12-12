@@ -2,23 +2,26 @@ package com.github.paolodepetrillo.vkdtandroidtest
 
 import android.graphics.Bitmap
 import android.os.Bundle
-import android.os.StrictMode
-import android.os.StrictMode.VmPolicy
 import android.provider.MediaStore
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.github.paolodepetrillo.vkdtandroidtest.vkdt.DtModuleId
 import com.github.paolodepetrillo.vkdtandroidtest.vkdt.DtToken
@@ -28,13 +31,16 @@ import com.github.paolodepetrillo.vkdtandroidtest.vkdt.VkdtLib
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val viewModel: MainViewModel by viewModels()
+
     var graph: VkdtGraph? = null
 
     @OptIn(ExperimentalPermissionsApi::class)
@@ -55,16 +61,23 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun MainUi() {
-        var bmp by remember { mutableStateOf<Bitmap?>(null) }
+        val mainBitmap by viewModel.mainBitmap.collectAsStateWithLifecycle(null)
+        var exposure by remember { mutableFloatStateOf(0f) }
         Column {
             Button(onClick = { lifecycleScope.launch {
                 loadImage()
-                bmp = graph?.getBitmap(DtToken("main"))
             } }) {
                 Text("Load Image")
             }
-            bmp?.let {
-                Image(it.asImageBitmap(), null)
+            Text("Exposure = $exposure")
+            Slider(
+                value = exposure,
+                onValueChange = { exposure = it },
+                onValueChangeFinished = { viewModel.setExposure(exposure) },
+                valueRange = -5f..5f
+            )
+            mainBitmap?.let {
+                Image(it.bitmap.asImageBitmap(), null)
             }
         }
     }
@@ -111,7 +124,7 @@ class MainActivity : ComponentActivity() {
                     val name = cursor.getString(nameColumn)
                     if (name.endsWith(".dng")) {
                         val data = cursor.getString(dataColumn)
-                        processRaw(data)
+                        viewModel.selectFile(data, filesDir)
                         break
                     }
                 }
@@ -119,6 +132,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /*
     fun processRaw(rawFileName: String) {
         val vkdtBase = VkdtBase(this)
         val vkdtLib = VkdtLib(vkdtBase)
@@ -129,6 +143,7 @@ class MainActivity : ComponentActivity() {
         graph!!.setParam(DtModuleId("i-raw", "main"), "filename", rawFileName)
         graph!!.doTestExport(File(filesDir, "out.jpg").absolutePath)
     }
+     */
 
     companion object {
         val permissions = listOf(android.Manifest.permission.READ_MEDIA_IMAGES)
