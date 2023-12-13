@@ -4,7 +4,7 @@ class VkdtLib(vkdtBase: VkdtBase) {
     private val graphs: MutableSet<VkdtGraph> = mutableSetOf()
 
     init {
-        initVkdtLib(vkdtBase.root.absolutePath).let {
+        initVkdtLib(vkdtBase.rootPath).let {
             if (it != 0) {
                 throw RuntimeException("Failed to initialize vkdt lib")
             }

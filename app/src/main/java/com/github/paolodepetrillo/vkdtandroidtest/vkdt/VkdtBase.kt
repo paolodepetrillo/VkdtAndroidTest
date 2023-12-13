@@ -7,10 +7,10 @@ import java.lang.RuntimeException
 import java.util.zip.ZipInputStream
 
 class VkdtBase(context: Context) {
-    val root = File(context.filesDir, "vkdtbase")
+    private val root = File(context.filesDir, "vkdtbase")
     private val timestampFile = File(root, "vkdtbase_timestamp")
 
-    init {
+    val rootPath by lazy {
         if (timestampFile.exists()) {
             timestampFile.inputStream().use {
                 val timestamp = it.reader().readText()
@@ -21,6 +21,7 @@ class VkdtBase(context: Context) {
         } else {
             unpack(context)
         }
+        root.absolutePath
     }
 
     private fun unpack(context: Context) {
