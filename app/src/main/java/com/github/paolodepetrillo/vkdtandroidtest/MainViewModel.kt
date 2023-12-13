@@ -30,7 +30,7 @@ class MainViewModel @Inject constructor(
     private val _imageList = MutableStateFlow<List<ImageFileInfo>>(listOf())
     val imageList: StateFlow<List<ImageFileInfo>> = _imageList
 
-    private val graph: VkdtGraph = vkdtLib.newGraph()
+    private var graph: VkdtGraph? = null
 
     fun getImageList() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -74,26 +74,36 @@ class MainViewModel @Inject constructor(
         Log.i("vkdt", "Processing $name")
         _rawFileName.value = name
         viewModelScope.launch(Dispatchers.IO) {
-            val gf = File(application.filesDir, "vkdtbase/bin/default-darkroom.i-raw")
-            val lines = gf.readText(Charsets.UTF_8).lines()
-            graph.loadConfigLines(lines)
-            graph.setParam(DtModuleId("i-raw", "main"), "filename", name)
-            val bmp = graph.runGraphIfNeeded()
-            _mainBitmap.value = BitmapWrapper(bmp)
+            graph?.let {
+                vkdtLib.closeGraph(it)
+            }
+            vkdtLib.newGraph().let {
+                graph = it
+                val gf = File(application.filesDir, "vkdtbase/bin/default-darkroom.i-raw")
+                val lines = gf.readText(Charsets.UTF_8).lines()
+                it.loadConfigLines(lines)
+                it.setParam(DtModuleId("i-raw", "main"), "filename", name)
+                val bmp = it.runGraphIfNeeded()
+                _mainBitmap.value = BitmapWrapper(bmp)
+            }
         }
     }
 
     fun setExposure(exposure: Float) {
         viewModelScope.launch(Dispatchers.IO) {
-            Log.i("vkdt", "Set exposure $exposure")
-            graph.setParam(DtModuleId("colour", "01"), "exposure", 0, exposure)
-            val bmp = graph.runGraphIfNeeded()
-            _mainBitmap.value = BitmapWrapper(bmp)
+            graph?.let { graph ->
+                Log.i("vkdt", "Set exposure $exposure")
+                graph.setParam(DtModuleId("colour", "01"), "exposure", 0, exposure)
+                val bmp = graph.runGraphIfNeeded()
+                _mainBitmap.value = BitmapWrapper(bmp)
+            }
         }
     }
 
     override fun onCleared() {
         super.onCleared()
-        vkdtLib.closeGraph(graph)
+        graph?.let {
+            vkdtLib.closeGraph(it)
+        }
     }
 }
