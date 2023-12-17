@@ -46,7 +46,7 @@ SET(VKDT_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/vkdt-prefix)
 SET(VKDT_ROOT ${VKDT_PREFIX}/src/vkdt_project)
 ExternalProject_Add(vkdt_project
         PREFIX ${VKDT_PREFIX}
-        GIT_REPOSITORY /home/paolo/vk/vkdtp
+        GIT_REPOSITORY https://github.com/paolodepetrillo/vkdt
         GIT_TAG android-test
         CONFIGURE_COMMAND cp "${CMAKE_CURRENT_BINARY_DIR}/vkdt_config.mk" "${VKDT_ROOT}/bin/config.mk"
         BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEFLAGS=${VKDT_MAKEFLAGS}
