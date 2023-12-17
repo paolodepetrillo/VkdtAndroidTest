@@ -14,7 +14,27 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         android
         log
         jnigraphics
+        jpeg
         vkdt)
+
+SET(LIBJPEG_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/libjpeg-prefix)
+ExternalProject_Add(libjpeg
+        PREFIX ${LIBJPEG_PREFIX}
+        GIT_REPOSITORY https://github.com/libjpeg-turbo/libjpeg-turbo
+        GIT_TAG 3.0.1
+        CMAKE_ARGS
+            -DANDROID_ABI=arm64-v8a
+            -DANDROID_ARM_MODE=arm
+            -DANDROID_PLATFORM=android-${ANDROID_PLATFORM_LEVEL}
+            -DCMAKE_ASM_FLAGS="--target=aarch64-linux-android${ANDROID_PLATFORM_LEVEL}"
+            -DCMAKE_TOOLCHAIN_FILE=${CMAKE_ANDROID_NDK}/build/cmake/android.toolchain.cmake
+            -DENABLE_STATIC=OFF -DENABLE_SHARED=ON
+        INSTALL_COMMAND ""
+        UPDATE_COMMAND ""
+        BUILD_BYPRODUCTS ${LIBJPEG_PREFIX}/src/libjpeg-build/libjpeg.so)
+
+add_library(jpeg SHARED IMPORTED)
+set_target_properties(jpeg PROPERTIES IMPORTED_LOCATION ${LIBJPEG_PREFIX}/src/libjpeg-build/libjpeg.so)
 
 configure_file(vkdt_config.mk.in ${CMAKE_CURRENT_BINARY_DIR}/vkdt_config.mk)
 
@@ -37,6 +57,7 @@ ExternalProject_Add(vkdt_project
         BUILD_BYPRODUCTS ${VKDT_ROOT}/bin/libvkdt.so)
 
 add_library(vkdt SHARED IMPORTED)
+add_dependencies(vkdt libjpeg)
 include_directories(${VKDT_ROOT}/src ${VKDT_ROOT}/ext/volk)
 set_target_properties(vkdt PROPERTIES IMPORTED_LOCATION ${VKDT_ROOT}/bin/libvkdt.so)
 
