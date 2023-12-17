@@ -56,7 +56,7 @@ class MainViewModel @Inject constructor(
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
                     val name = cursor.getString(nameColumn)
-                    if (name.endsWith(".dng")) {
+                    if (name.endsWith(".dng") || name.endsWith(".jpg")) {
                         val data = cursor.getString(dataColumn)
                         list.add(ImageFileInfo(name, data))
                         if (list.size >= 100) {
@@ -79,10 +79,11 @@ class MainViewModel @Inject constructor(
             }
             vkdtLib.newGraph().let {
                 graph = it
-                val gf = File(application.filesDir, "vkdtbase/bin/default-darkroom.i-raw")
+                val imod = if (name.endsWith(".dng")) "i-raw" else "i-jpg"
+                val gf = File(application.filesDir, "vkdtbase/bin/default-darkroom.$imod")
                 val lines = gf.readText(Charsets.UTF_8).lines()
                 it.loadConfigLines(lines)
-                it.setParam(DtModuleId("i-raw", "main"), "filename", name)
+                it.setParam(DtModuleId(imod, "main"), "filename", name)
                 val bmp = it.runGraphIfNeeded()
                 _mainBitmap.value = BitmapWrapper(bmp)
             }
