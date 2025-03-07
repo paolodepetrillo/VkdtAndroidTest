@@ -21,7 +21,7 @@ SET(LIBJPEG_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/libjpeg-prefix)
 ExternalProject_Add(libjpeg
         PREFIX ${LIBJPEG_PREFIX}
         GIT_REPOSITORY https://github.com/libjpeg-turbo/libjpeg-turbo
-        GIT_TAG 3.0.1
+        GIT_TAG 3.1.0
         CMAKE_ARGS
             -DANDROID_ABI=arm64-v8a
             -DANDROID_ARM_MODE=arm
@@ -47,14 +47,15 @@ SET(VKDT_ROOT ${VKDT_PREFIX}/src/vkdt_project)
 ExternalProject_Add(vkdt_project
         PREFIX ${VKDT_PREFIX}
         GIT_REPOSITORY https://github.com/paolodepetrillo/vkdt
-        GIT_TAG android-test
+        GIT_TAG android-port
         CONFIGURE_COMMAND cp "${CMAKE_CURRENT_BINARY_DIR}/vkdt_config.mk" "${VKDT_ROOT}/bin/config.mk"
         BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEFLAGS=${VKDT_MAKEFLAGS}
             make -C "${VKDT_ROOT}/bin" lib
         BUILD_IN_SOURCE true
         INSTALL_COMMAND bash ${CMAKE_SOURCE_DIR}/gen_vkdtbase.sh ${VKDT_ROOT}/vkdtbase.zip ${VKDT_ROOT}
         UPDATE_COMMAND ""
-        BUILD_BYPRODUCTS ${VKDT_ROOT}/bin/libvkdt.so)
+        BUILD_BYPRODUCTS ${VKDT_ROOT}/bin/libvkdt.so
+        DEPENDS libjpeg)
 
 add_library(vkdt SHARED IMPORTED)
 add_dependencies(vkdt libjpeg)

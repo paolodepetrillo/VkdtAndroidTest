@@ -57,7 +57,7 @@ Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtLib_initVkdtLib(JNIEnv 
     }
     threads_global_init();
 
-    VkResult res = qvk_init(nullptr, -1);
+    VkResult res = qvk_init(nullptr, -1, 0);
     return res;
 }
 
@@ -75,7 +75,7 @@ JNIEXPORT jlong JNICALL
 Java_com_github_paolodepetrillo_vkdtandroidtest_vkdt_VkdtGraph_initGraph(JNIEnv *env, jclass clazz
 ) {
     auto *graph = (dt_graph_t *)malloc(sizeof(dt_graph_t));
-    dt_graph_init(graph);
+    dt_graph_init(graph, s_queue_compute);
     return (long)graph;
 }
 
